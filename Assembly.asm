@@ -1,144 +1,201 @@
-.model small 
+        
+        
+ .model small 
 .data 
-    sequence       DB 100 dup(?)   ; output return the screan          
-    player_input   DB 100 dup(?)   ; input user your sequuence 
-    correct        DB 1                
-    level          DB 3
+    sequence       DB 100 dup(?)   ; buffer to store generated sequence          
+    player_input   DB 100 dup(?)   ; buffer to store player's input 
+    correct        DB 1             ; flag to track correctness of input
+    level          DB 3             ; initial game level
     win_msg        DB 10,13,"CORRECT ANSWER  --- NEXT LEVEL  ", "$"
-    lose_msg       DB 10,13,"WRONG ANSWER  --- End THE GAME ","$"
+    lose_msg       DB 10,13,"WRONG ANSWER  --- END THE GAME ", "$"
     prompt_msg     DB 10,13,"TRY THE SYMBOL","$"
+    exit_msg       DB 10,13,"GAME OVER! PRESS ANY KEY TO EXIT", "$"
+
+.stack 256         ; Explicitly define stack size
 
 .code 
-    main proc far 
-    .startup 
+    main PROC FAR
+        mov ax, @data     ; Properly initialize data segment (.startup )
+        mov ds, ax
+        
     start_game:
-    call generate_sequence    
-    call display_sequence
-    call get_player_input        
-    call check_input             
-    cmp correct, 1 
-    je  next_level
-    jne game_over               
+        call generate_sequence    
+        call display_sequence
+        call get_player_input        
+        call check_input             
+        cmp correct, 1 
+        je  next_level
+        jmp game_over               
 
-next_level:
-    lea dx, win_msg
-    mov ah, 09h
-    int 21h                      
-    inc level                    
-    jmp start_game  
-game_over:
-    lea dx, lose_msg
-    mov ah, 09h
-    int 21h            
+    next_level:
+        lea dx, win_msg
+        mov ah, 09h
+        int 21h                      
+        inc level                    
+        cmp level, 10                ; Add maximum level check
+        jl start_game
+        jmp game_over
     
-    .exit   ; mov ah, 4Ch  int 21h 
+    game_over:
+        lea dx, exit_msg             ; Added exit message
+        mov ah, 09h
+        int 21h
+        
+        mov ah, 00h                  ; Wait for key press
+        int 16h
+        
+        mov ah, 4Ch                  ; Proper exit to DOS
+        int 21h
     
-    
-    
-    
-    generate_sequence proc 
+    main ENDP
 
-    mov al, level ;initial value for generating the sequence
-    mov ah, 0
-    mov cx, ax  ;cx register determines the number of loop iterations               
-    xor si, si  ;SI register will be used as an index for storing values in memory
+    generate_sequence PROC NEAR
+        push cx                      ; Save registers
+        push si
+        
+        mov al, level                ; initial value for generating the sequence
+        mov ah, 0
+        mov cx, ax                   ; cx register determines number of loop iterations               
+        xor si, si                   ; SI register as index for storing values
     
     generate_loop:
-    in al,40h    
-    and al, 0Fh                
-    add al, '0' ;This converts the number (0?15) into its ASCII character representation ('0'?'F').                
-    mov [sequence + si], al ;Stores the generated ASCII character into memory at the address sequence + si    
-    inc si ; to move to the next memory location in the sequence buffer
-    loop generate_loop
-    ret
-        generate_sequence endp
-
-
+        push cx                      ; Save loop counter
         
-    display_sequence proc 
-    mov al, level
-    mov ah, 0
-    mov cx, ax
-    xor si, si                   
+        ; Better random number generation
+        mov ah, 00h                  ; Get system time
+        int 1Ah                      ; CX:DX now contains clock ticks
+        mov al, dl                   ; Use lower part of tick count
+        and al, 0Fh                  ; Limit to 0-15
+        add al, '0'                  ; Convert to ASCII
+        
+        mov [sequence + si], al      ; Store in sequence
+        inc si
+        
+        pop cx                       ; Restore loop counter
+        loop generate_loop
+        
+        pop si                       ; Restore registers
+        pop cx
+        ret
+    generate_sequence ENDP
+
+    display_sequence PROC NEAR
+        push cx
+        push si
+        
+        mov al, level
+        mov ah, 0
+        mov cx, ax
+        xor si, si                   
+    
     display_loop:
-    mov al, [sequence + si]
-    mov ah, 0Eh                        
-    int 10h                      
-    inc si
-    loop display_loop
-    call delay   
-    call clear_screen
-    ret
-        display_sequence endp
-   
-
+        mov al, [sequence + si]
+        mov ah, 0Eh                  ; BIOS teletype output     
+        int 10h                      
+        inc si
+        loop display_loop
         
-    get_player_input proc 
-    lea dx, prompt_msg
-    mov ah, 09h           
-    int 21h                      
-    mov al, level
-    mov ah, 0
-    mov cx, ax                  
-    xor di, di                   
-   input_loop:
-    mov ah, 00h ; input of player                 
-    int 16h                      
-    mov [player_input + di], al  
-    mov ah, 0Eh                  
-    int 10h
-    inc di                       
-    loop input_loop              
-    ret
-        get_player_input endp
+        call delay   
+        call clear_screen
+        
+        pop si
+        pop cx
+        ret
+    display_sequence ENDP
 
-    check_input proc
-    mov al, level
-    mov ah, 0
-    mov cx, ax           
-    xor si, si
-    xor di,di
-    mov correct, 1               
+    get_player_input PROC NEAR
+        push cx
+        push di
+        
+        lea dx, prompt_msg
+        mov ah, 09h           
+        int 21h                      
+        
+        mov al, level
+        mov ah, 0
+        mov cx, ax                  
+        xor di, di                   
+   
+    input_loop:
+        mov ah, 00h                  ; Wait for keyboard input                 
+        int 16h                      
+        mov [player_input + di], al  
+        
+        mov ah, 0Eh                  ; Display input character  
+        int 10h
+        
+        inc di                       
+        loop input_loop              
+        
+        pop di
+        pop cx
+        ret
+    get_player_input ENDP       
+        
+        
+   check_input PROC NEAR
+        push cx
+        push si
+        push di
+        
+        mov al, level
+        mov ah, 0
+        mov cx, ax           
+        xor si, si
+        xor di, di
+        mov correct, 1               
+    
     compare_loop:
-    mov al, [sequence + si]     
-    cmp al, [player_input + di] 
-    jne incorrect_input          
-    inc si
-    inc di 
-    loop compare_loop
-    ret
+        mov al, [sequence + si]     
+        cmp al, [player_input + di] 
+        jne incorrect_input          
+        inc si
+        inc di 
+        loop compare_loop
+        
+        pop di
+        pop si
+        pop cx
+        ret
+    
     incorrect_input:
-    mov correct, 0               
-    ret
-        check_input endp
+        mov correct, 0               
+        pop di
+        pop si
+        pop cx
+        ret
+    check_input ENDP
     
-    delay proc
-    mov cx, 0000fh  ;The number of iterations for the loop is defined in CX.        
-    mov dx, 0      ;CX:DX holds the delay time in microseconds (high word).
-                   ;DX is the low word of the delay time
-    mov ah, 86h    ;with function 86h to introduce a delay.
-    int 15h    
-     
-    
+    delay PROC NEAR
+        push cx
+        push dx
+        
+        mov cx, 0000fh               ; Increased delay time
+        
     delay_loop:
-    nop   ;Perform no operation (just consume time).  
-    loop delay_loop
-    ret
-        delay endp
+        push cx                      ; Nested loop for more reliable delay
+        mov cx, 0000fh
+        
+    inner_delay_loop:
+        nop
+        loop inner_delay_loop
+        
+        pop cx
+        loop delay_loop
+        
+        pop dx
+        pop cx
+        ret
+    delay ENDP
     
-    clear_screen proc 
-   mov ah, 06h           ; Set AH to 06h to use the scroll function.
-   mov al, 0             ; AL = 0 means to clear the entire screen.
-   mov bh, 07h           ; Set background attribute to white (or default color).
-   mov cx, 0             ; Top-left corner of the screen.
-   mov dx, 184Fh         ; Bottom-right corner of the screen (80x25 mode).
-   int 10h               ; Call BIOS interrupt 10h for screen operations.
-   ret                   ; Return from procedure.
+    clear_screen PROC NEAR
+        mov ah, 06h                  ; Scroll function
+        mov al, 0                    ; Clear entire screen
+        mov bh, 07h                  ; Default color attribute
+        mov cx, 0                    ; Top-left corner
+        mov dx, 184Fh                ; Bottom-right corner
+        int 10h
+        ret
+    clear_screen ENDP
 
-        clear_screen endp
-    
-    
-    
-    .exit  
-    main endp 
- end main
+END main         

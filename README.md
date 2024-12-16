@@ -31,6 +31,6 @@
 - Simple memory tracking
 - Progressive difficulty
   ## Team_Work
-  *Farida Mahmoud Almekkawi *<br>
-  *Fatma Atia Hegaze *<br>
-  *Fatma Mamdouh Elsayed *<br>
+  *Farida Mahmoud Almekkawi* <br>
+  *Fatma Atia Hegaze* <br>
+  *Fatma Mamdouh Elsayed* <br>

@@ -4,7 +4,7 @@
 
 **A memory challenge game in x86 Assembly :**
 
-###1. Game Mechanics:
+### 1. Game Mechanics:
 - Player must remember a randomly generated sequence
 - Difficulty increases with each level (starts at level 3)
 - Sequence gets longer as levels progress
@@ -17,7 +17,7 @@
 - Get player input
 - Check input accuracy
 
-###3. Game Flow:
+### 3. Game Flow:
 - Generate sequence
 - Show sequence
 - Hide sequence
@@ -25,7 +25,7 @@
 - Verify input
 - Advance level or end game
 
-##Core Features:
+## Core Features:
 - Uses system time for "random" generation
 - BIOS interrupt-based input/output
 - Simple memory tracking
